@@ -1,8 +1,8 @@
 public class No {
-    int valor;
+    double valor;
     int cor;
 
-    public No(int valor, int cor) {
+    public No(double valor, int cor) {
         this.valor = valor;
         this.cor = cor;
     }
@@ -11,11 +11,11 @@ public class No {
         this(0,0);
     }
 
-    public int getValor() {
+    public double getValor() {
         return valor;
     }
 
-    public void setValor(int valor) {
+    public void setValor(double valor) {
         this.valor = valor;
     }
 
