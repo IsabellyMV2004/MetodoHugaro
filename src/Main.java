@@ -3,7 +3,7 @@
 public class Main {
     public static void main(String[] args) {
 
-        int l, c, tracos;
+        int l, c, tracos, min, corMin;
         No [] matriz;
         No[] vetor;
         boolean min_tracos = false;
@@ -14,18 +14,43 @@ public class Main {
         minColuna(matriz,l,c,vetor);
         subMinColuna(matriz,l,c,vetor);
         do {
-            tracos = 0;
             minTracosZeros(matriz,l,c);
-            contarTracos(matriz,tracos);
+            tracos = contarTracos(matriz,l,c);
             if(tracos != l) {
+                pintar(matriz,l,c,0);
+                for (int i = 0; i < l; i++)
+                    for (int j = 0; j < c; j++)
+                        if(matriz[i][j].getValor() == 0 && !buscarZero(matriz,l,c,i,j))
+                            matriz[i][j].setCor(1);
+
+
+
 
                 min_tracos = true;
             }
             else {
-
+                min = 999;
+                corMin = 1;
+                minCor(matriz,l,c,min,corMin);
+                for (int i = 0; i < l; i++) {
+                    for (int j = 0; j < c; j++) {
+                        if(matriz[i][j].getCor() == 0)
+                            matriz[i][j].setValor(matriz[i][j].getValor-min);
+                        else
+                        if(matriz[i][j].getCor() == corMin)
+                            matriz[i][j].setValor(matriz[i][j].getValor+min);
+                    }
+                }
+                pintar(matriz,l,c,0);
             }
 
         }while(!min_tracos);
+    }
+
+    public static void pintar(No[] matriz, int l, int c, int cor){
+        for (int i = 0; i < l; i++)
+            for (int j = 0; j < c; j++)
+                matriz[i][j].setColor(cor);
     }
 
     private static void carregarDadosArquivo(No[] matriz, int l, int c) {
@@ -71,7 +96,7 @@ public class Main {
 
     private static void minTracosZeros(No[] matriz, int l, int c) {
         int vetC[] = new int[c], vetL[] = new int[l];
-        int pos;
+        int pos, int valor = 2;
 
         for (int i = 0; i < l; i++)
             vetL[i] = 0;
@@ -80,11 +105,23 @@ public class Main {
             vetC[i] = 0;
 
         contarZeros(matriz,l,c,vetL,vetC);
-        while (!vazio(vetL) && !vazio(vetC))
+        while (!vazio(vetL) && !vazio(vetC) && valor > 0)
         {
-            pos = buscarPos(vetL,2);
-            vetL[pos]--;
+            pos = buscarPos(vetC,valor);
+            vetC[pos]--;
+            for (int i = 0; i < l; i++) {
+                matriz[i][pos].setCor(matriz[i][pos].getColor()+1);
+                vetL[i]--;
+            }
 
+            pos = buscarPos(vetL,valor);
+            vetL[pos]--;
+            for (int i = 0; i < c; i++) {
+                matriz[pos][c].setCor(matriz[pos][i].getColor()+1);
+                vetC[i]--;
+            }
+
+            valor--;
         }
     }
 
@@ -122,6 +159,51 @@ public class Main {
         }
     }
 
-    private static void contarTracos(No[] matriz, int tracos) {
+    private static int contarTracos(No[] matriz, int l, int c) {
+        int cont, traco = 0;
+
+        for (int i = 0; i < l; i++) {
+            cont = 0;
+            for (int j = 0; j < c; j++) {
+                if(matriz[i][j].getColor() > 0)
+                    cont++;
+            }
+            if(cont == c)
+                traco++;
+        }
+
+        for (int i = 0; i < c; i++) {
+            cont = 0;
+            for (int j = 0; j < l; j++) {
+                if(matriz[j][i].getColor() > 0)
+                    cont++;
+            }
+            if(cont == l)
+                traco++;
+        }
+
+        return traco;
+    }
+
+    private static void minCor(No[] matriz, int l, int c, int menor, int corMenor) {
+        for (int i = 0; i < l; i++)
+            for (int j = 0; j < c; j++)
+                if(matriz[i][j].getCor() > 1 && matriz[i][j].getValor() < menor)
+                {
+                    menor = matriz[i][j].getValor();
+                    corMenor = matriz[i][j].getCor();
+                }
+    }
+
+    private static boolean buscarZero(No[] matriz, int l, int c, int x, int y) {
+        boolean flag = false;
+        for (int i = 0; i < l; i++)
+            if(matriz[i][y] == 0)
+                flag = true;
+
+        for (int i = 0; i < c; i++)
+            if(matriz[x][i] == 0)
+                flag = true;
+        return flag;
     }
 }
