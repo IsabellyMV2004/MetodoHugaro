@@ -14,13 +14,12 @@ public class HungarianSimple {
         String caminho = new java.io.File("out\\production\\MetodoHugaro").getAbsolutePath()+"\\entrada.txt";
         double[][] input = carregarDadosArq(caminho);
 
-        // Pad para matriz quadrada
         int n = Math.max(input.length, input[0].length);
         double INF = 1e6; // custo alto para posições fictícias
         double[][] a = new double[n][n];
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++)
             Arrays.fill(a[i], INF);
-        }
+
         for (int i = 0; i < input.length; i++)
             for (int j = 0; j < input[0].length; j++)
                 a[i][j] = input[i][j];
@@ -28,31 +27,36 @@ public class HungarianSimple {
         System.out.println("Matriz inicial (padronizada a " + n + "x" + n + "):");
         imprimirMatriz(a);
 
-        // 1) Redução por linha
+        // redução por linha
         for (int i = 0; i < n; i++) {
             double min = Double.POSITIVE_INFINITY;
-            for (int j = 0; j < n; j++) min = Math.min(min, a[i][j]);
-            if (!Double.isInfinite(min) && Math.abs(min) > EPS) {
-                for (int j = 0; j < n; j++) a[i][j] -= min;
-            }
+            for (int j = 0; j < n; j++)
+                min = Math.min(min, a[i][j]);
+            if (!Double.isInfinite(min) && Math.abs(min) > EPS)
+                for (int j = 0; j < n; j++)
+                    a[i][j] -= min;
         }
 
-        // 2) Redução por coluna
-        for (int j = 0; j < n; j++) {
-            double min = Double.POSITIVE_INFINITY;
-            for (int i = 0; i < n; i++) min = Math.min(min, a[i][j]);
-            if (!Double.isInfinite(min) && Math.abs(min) > EPS) {
-                for (int i = 0; i < n; i++) a[i][j] -= min;
-            }
-        }
-
-        System.out.println("\nApós reduções por linha/coluna:");
+        System.out.println("\nApós reduções por linha:");
         imprimirMatriz(a);
 
-        // Iteração principal
+        // redução por coluna
+        for (int j = 0; j < n; j++) {
+            double min = Double.POSITIVE_INFINITY;
+            for (int i = 0; i < n; i++)
+                min = Math.min(min, a[i][j]);
+            if (!Double.isInfinite(min) && Math.abs(min) > EPS)
+                for (int i = 0; i < n; i++)
+                    a[i][j] -= min;
+        }
+
+        System.out.println("\nApós reduções por coluna:");
+        imprimirMatriz(a);
+
+        // iteração principal
         int[] matchCol = new int[n]; // matchCol[j] = i (row), ou -1 se livre
         while (true) {
-            // 3) construir grafo de zeros e encontrar emparelhamento máximo (matching)
+            // construir grafo de zeros e encontrar emparelhamento máximo
             Arrays.fill(matchCol, -1);
             for (int row = 0; row < n; row++) {
                 boolean[] seen = new boolean[n];
@@ -68,11 +72,11 @@ public class HungarianSimple {
                 break;
             }
 
-            // 4) Determinar cobertura mínima de linhas/colunas a partir do matching
+            // determinar cobertura mínima de linhas/colunas a partir do matching
             boolean[] rowVisited = new boolean[n];
             boolean[] colVisited = new boolean[n];
 
-            // Iniciar por todas as linhas livres (linhas que não estão em match)
+            // iniciar por todas as linhas livres (linhas que não estão em match)
             boolean[] rowHasMatch = new boolean[n];
             for (int j = 0; j < n; j++)
                 if (matchCol[j] != -1) rowHasMatch[matchCol[j]] = true;
@@ -96,7 +100,7 @@ public class HungarianSimple {
             System.out.println("Colunas cobradas (cols): " + Arrays.toString(coverCol));
             System.out.println("Número de traços/linhas usadas: " + lines + " (matchingSize=" + matchingSize + ")");
 
-            // 5) Ajuste: encontrar menor elemento não coberto
+            // encontrar menor elemento não coberto
             double minUncovered = Double.POSITIVE_INFINITY;
             for (int i = 0; i < n; i++) {
                 for (int j = 0; j < n; j++) {
