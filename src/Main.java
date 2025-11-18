@@ -1,7 +1,20 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
+        String[][] matrizTxt = carregarDadosArq("entrada.txt");
+        String matrizEmString = matrizString(matrizTxt);
+
+        System.out.println("Linhas: " + linhasArq);
+        System.out.println("Colunas: " + colunasArq);
+        System.out.println("Matriz do arquivo:\n" + matrizEmString);
 
         int l, c, tracos, min, corMin;
         No [] matriz;
@@ -205,5 +218,39 @@ public class Main {
             if(matriz[x][i] == 0)
                 flag = true;
         return flag;
+    }
+
+    public static int linhasArq = 0;
+    public static int colunasArq = 0;
+
+    public static String[][] carregarDadosArq(String caminho) throws IOException {
+
+        List<String[]> linhas = new ArrayList<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(caminho))) {
+            String linha;
+
+            while ((linha = br.readLine()) != null) {
+                linha = linha.trim();
+                if (!linha.isEmpty()) {
+                    linhas.add(linha.split("\\s+"));
+                }
+            }
+        }
+        linhasArq = linhas.size();
+        colunasArq = linhas.get(0).length;
+
+        return linhas.toArray(new String[0][]);
+    }
+
+    public static String matrizString(String[][] matriz){
+        StringBuilder builder = new StringBuilder();
+        for(String[] linha : matriz){
+            for(String valor : linha){
+                builder.append(valor).append(" ");
+            }
+            builder.append("\n");
+        }
+        return builder.toString();
     }
 }
