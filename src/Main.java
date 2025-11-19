@@ -38,12 +38,12 @@ public class Main {
         for (int i = 0; i < input.length; i++) {
             int j = res.assignment[i];
             if (j >= 0 && j < input[0].length) {
-                System.out.printf("  linha %d -> coluna %d   custo = %f%n", i, j, input[i][j]);
+                System.out.printf("  linha %d -> coluna %d%n", i, j);
             } else {
                 System.out.printf("  linha %d -> coluna %d   (padded ou inválido)%n", i, j);
             }
         }
-        System.out.printf("Custo total (somente linhas originais): %f%n", res.totalCost);
+        //System.out.printf("Custo total (somente linhas originais): %f%n", res.totalCost);
     }
 
     /** Estrutura para resultado */
@@ -175,16 +175,16 @@ public class Main {
         }
 
         // calcular custo apenas nas linhas originais
-        double totalCost = 0;
+        /*double totalCost = 0;
         for (int i = 0; i < rows; i++) {
             int j = assignment[i];
             if (j >= 0 && j < cols) totalCost += input[i][j];
             else totalCost += INF; // penalidade se foi atribuído a coluna fictícia
-        }
+        }*/
 
         HungarianResult out = new HungarianResult();
         out.assignment = assignment;
-        out.totalCost = totalCost;
+        //out.totalCost = totalCost;
         return out;
     }
 
