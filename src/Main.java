@@ -1,368 +1,257 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
+import java.io.*;
+import java.util.*;
 
 public class Main {
-    public static final String RESET = "\u001B[0m";
-    public static String[] COLOR;
-    public static String[] BG_COLOR;
+    private static final double EPS = 1e-9;
 
-    public static int linhasArq = 0;
-    public static int colunasArq = 0;
+    // ANSI background color para destacar zeros (pode não funcionar em todas IDEs/terminals)
+    private static final String BG_YELLOW = "\u001B[43m";
+    private static final String BG_RESET  = "\u001B[0m";
 
-    public static void main(String[] args) throws IOException {
-        String caminho = new java.io.File("out\\production\\MetodoHugaro").getAbsolutePath() + "\\entrada.txt";
-        String[][] matrizTxt = carregarDadosArq(caminho);
-        String matrizEmString = matrizString(matrizTxt);
-        inicializarCores();
+    public static void main(String[] args) throws Exception {
+        double[][] input;
 
-        System.out.println("Linhas: " + linhasArq);
-        System.out.println("Colunas: " + colunasArq);
-        System.out.println("Matriz do arquivo:\n" + matrizEmString);
+        // tenta carregar de arquivo entrada.txt no diretório de execução
+        File f = new File("entrada.txt");
+        if (f.exists()) {
+            System.out.println("Procurando arquivo no diretório: " +
+                    new File("").getAbsolutePath());
 
-        int l = matrizTxt.length, c = matrizTxt[0].length, tracos, corMin;
-        double min;
-        No[][] matriz = new No[l][c];
-        No[] vetor;
-        boolean min_tracos = false;
-        carregarDados(matriz, l, c, matrizTxt);
+            input = carregarDadosArq("entrada.txt");
 
-        vetor = new No[l];
-        minLinha(matriz, l, c, vetor);
-        exibirMatriz(matriz, l, c, vetor, "L");
-        subMinLinha(matriz, l, c, vetor);
-        exibirMatriz(matriz, l, c, null, "");
-        vetor = new No[c];
-        minColuna(matriz, l, c, vetor);
-        exibirMatriz(matriz, l, c, vetor, "C");
-        subMinColuna(matriz, l, c, vetor);
-        exibirMatriz(matriz, l, c, null, "");
+        } else {
+            System.out.println("Arquivo entrada.txt não encontrado — usando matriz embutida (fornecida).");
+            input = new double[][] {
+                    {5, 24, 13, 7},
+                    {10,25, 3, 23},
+                    {28, 9,  8, 5},
+                    {10,17,15, 3}
+            };
+        }
 
-        int safety = 0; // evita loop infinito acidental
-        do {
-            minTracosZeros(matriz, l, c);
-            exibirMatriz(matriz, l, c, null, "");
-            tracos = contarTracos(matriz, l, c);
-            if (tracos == l) {
-                System.out.println("Condição de término atingida (tracos == l)");
-                enquadrarZeros(matriz, l, c);
-                exibirMatriz(matriz, l, c, null, "");
-                min_tracos = true;
+        // resolver
+        HungarianResult res = hungarianWithSteps(input);
+
+        // mostrar resultado
+        System.out.println("\n=== Resultado Final ===");
+        System.out.println("Assignment (linha -> coluna):");
+        for (int i = 0; i < input.length; i++) {
+            int j = res.assignment[i];
+            if (j >= 0 && j < input[0].length) {
+                System.out.printf("  linha %d -> coluna %d   custo = %f%n", i, j, input[i][j]);
             } else {
-                System.out.println("Ajustando valores (caso tracos != l)...");
-                // obter menor e cor menor via retorno (corrigido para retornar)
-                int[] res = minCor(matriz, l, c);
-                min = res[0];
-                corMin = res[1];
-
-                for (int i = 0; i < l; i++) {
-                    for (int j = 0; j < c; j++) {
-                        if (matriz[i][j].getCor() == 0)
-                            matriz[i][j].setValor(matriz[i][j].getValor() - min);
-                        else if (matriz[i][j].getCor() == corMin)
-                            matriz[i][j].setValor(matriz[i][j].getValor() + min);
-                    }
-                }
-                pintar(matriz, l, c, 0);
-                exibirMatriz(matriz, l, c, null, "");
+                System.out.printf("  linha %d -> coluna %d   (padded ou inválido)%n", i, j);
             }
+        }
+        System.out.printf("Custo total (somente linhas originais): %f%n", res.totalCost);
+    }
 
-            safety++;
-            if (safety > 1000) {
-                System.err.println("Interrompendo execução — safety limit atingido (possível loop).");
+    /** Estrutura para resultado */
+    private static class HungarianResult {
+        int[] assignment; // assignment[row] = col
+        double totalCost;
+    }
+
+    /** Implementação do algoritmo com prints a cada passo importante */
+    private static HungarianResult hungarianWithSteps(double[][] input) {
+        int rows = input.length;
+        int cols = input[0].length;
+        int n = Math.max(rows, cols); // dimensão quadrada após padding
+        double INF = 1e9;
+
+        // matrix 'a' será n x n, preenchida com INF para posições fictícias
+        double[][] a = new double[n][n];
+        for (int i = 0; i < n; i++) Arrays.fill(a[i], INF);
+        for (int i = 0; i < rows; i++)
+            for (int j = 0; j < cols; j++)
+                a[i][j] = input[i][j];
+
+        System.out.println("\nMatriz padronizada (com padding até " + n + "x" + n + "):");
+        imprimirMatriz(a, -1);
+
+        // 1) redução por linha
+        for (int i = 0; i < n; i++) {
+            double min = Double.POSITIVE_INFINITY;
+            for (int j = 0; j < n; j++) min = Math.min(min, a[i][j]);
+            if (!Double.isInfinite(min) && Math.abs(min) > EPS)
+                for (int j = 0; j < n; j++) a[i][j] -= min;
+        }
+        System.out.println("\nApós redução por linha:");
+        imprimirMatriz(a, 0); // destaque zeros
+
+        // 2) redução por coluna
+        for (int j = 0; j < n; j++) {
+            double min = Double.POSITIVE_INFINITY;
+            for (int i = 0; i < n; i++) min = Math.min(min, a[i][j]);
+            if (!Double.isInfinite(min) && Math.abs(min) > EPS)
+                for (int i = 0; i < n; i++) a[i][j] -= min;
+        }
+        System.out.println("\nApós redução por coluna:");
+        imprimirMatriz(a, 0);
+
+        // iterar até obter matching perfeito
+        int[] matchCol = new int[n]; // matchCol[j] = i or -1
+        boolean finished = false;
+        int iteration = 0;
+        while (!finished) {
+            iteration++;
+            Arrays.fill(matchCol, -1);
+
+            // encontrar matching máximo em grafo de zeros (bipartite rows->cols)
+            for (int r = 0; r < n; r++) {
+                boolean[] seen = new boolean[n];
+                tryKuhn(r, a, matchCol, seen);
+            }
+            int matched = 0;
+            for (int j = 0; j < n; j++) if (matchCol[j] != -1) matched++;
+
+            System.out.println("\nIteração " + iteration + " -> tamanho do matching: " + matched + " de " + n);
+            // mostrar zeros destacados
+            imprimirMatriz(a, 0);
+
+            if (matched == n) {
+                System.out.println("Encontrado matching perfeito.");
+                finished = true;
                 break;
             }
-        } while (!min_tracos);
-    }
 
-    public static void inicializarCores() {
-        COLOR = new String[8];
-        COLOR[0] = "\u001B[0m";    // RESET
-        COLOR[1] = "\u001B[33m"; //YELLOW
-        COLOR[2] = "\u001B[36m"; //CYAN
-        COLOR[3] = "\u001B[32m"; //GREEN
-        COLOR[4] = "\u001B[34m"; //BLUE
-        COLOR[5] = "\u001B[31m"; //RED
-        COLOR[6] = "\u001B[35m"; //PURPLE
-        COLOR[7] = "\u001B[37m"; //WHITE
+            // construir cobertura mínima (Kőnig): linhas NÃO visitadas + colunas visitadas (via alternate DFS)
+            boolean[] rowVisited = new boolean[n];
+            boolean[] colVisited = new boolean[n];
+            boolean[] rowHasMatch = new boolean[n];
+            for (int j = 0; j < n; j++) if (matchCol[j] != -1) rowHasMatch[matchCol[j]] = true;
+            for (int i = 0; i < n; i++) {
+                if (!rowHasMatch[i]) alternateDFS(i, a, matchCol, rowVisited, colVisited);
+            }
+            // cover: rows NOT visited, cols visited
+            boolean[] coverRow = new boolean[n], coverCol = new boolean[n];
+            int lines = 0;
+            for (int i = 0; i < n; i++) {
+                coverRow[i] = !rowVisited[i];
+                if (coverRow[i]) lines++;
+            }
+            for (int j = 0; j < n; j++) {
+                coverCol[j] = colVisited[j];
+                if (coverCol[j]) lines++;
+            }
 
-        BG_COLOR = new String[8];
-        BG_COLOR[0] = "\u001B[0m";    // RESET
-        BG_COLOR[1] = "\u001B[43m"; //BG_YELLOW
-        BG_COLOR[2] = "\u001B[46m"; //BG_CYAN
-        BG_COLOR[3] = "\u001B[40m"; //BG_BLACK
-        BG_COLOR[4] = "\u001B[42m"; //BG_GREEN
-        BG_COLOR[5] = "\u001B[44m"; //BG_BLUE
-        BG_COLOR[6] = "\u001B[41m"; //BG_RED
-        BG_COLOR[7] = "\u001B[45m"; //BG_PURPLE
-    }
+            System.out.println("Linhas cobertas: " + Arrays.toString(coverRow));
+            System.out.println("Colunas cobertas: " + Arrays.toString(coverCol));
+            System.out.println("Número total de linhas usadas para cobrir zeros: " + lines);
 
-    private static void exibirMatriz(No[][] matriz, int l, int c, No[] vetor, String lc) {
-        if (vetor != null && "L".equals(lc)) {
-            for (int i = 0; i < l; i++) {
-                for (int j = 0; j < c; j++) {
-                    System.out.print(BG_COLOR[Math.max(0, Math.min(7, matriz[i][j].getCor()))] + matriz[i][j].getValor() + "  ");
-                }
-                System.out.print("\t\t" + vetor[i].getValor() + "\n");
-                System.out.print(BG_COLOR[0]);
+            // achar menor elemento não coberto
+            double minUncovered = Double.POSITIVE_INFINITY;
+            for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) {
+                if (!coverRow[i] && !coverCol[j]) minUncovered = Math.min(minUncovered, a[i][j]);
             }
-        } else {
-            for (int i = 0; i < l; i++) {
-                for (int j = 0; j < c; j++) {
-                    System.out.print(BG_COLOR[Math.max(0, Math.min(7, matriz[i][j].getCor()))] + matriz[i][j].getValor() + "  ");
-                }
-                System.out.print(BG_COLOR[0] + "\n");
+
+            if (Double.isInfinite(minUncovered)) {
+                System.err.println("Nenhum elemento não coberto encontrado — abortando.");
+                break;
             }
-            if ("C".equals(lc) && vetor != null) {
-                System.out.println();
-                for (int i = 0; i < vetor.length; i++) {
-                    System.out.print("" + vetor[i].getValor() + "  ");
-                }
-                System.out.println();
+
+            System.out.println("Menor elemento não coberto = " + minUncovered);
+
+            // ajustar: subtrair minUncovered de não cobertos; adicionar a double-covered
+            for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) {
+                if (!coverRow[i] && !coverCol[j]) a[i][j] -= minUncovered;
+                else if (coverRow[i] && coverCol[j]) a[i][j] += minUncovered;
             }
+
+            System.out.println("Após ajuste (subtrai minUncovered dos não-cobertos, soma aos doubly covered):");
+            imprimirMatriz(a, 0);
+
+            // volta para tentar matching novamente
         }
-        System.out.print(BG_COLOR[0] + "\n");
-    }
 
-    public static void enquadrarZeros(No[][] matriz, int l, int c) {
-        pintar(matriz, l, c, 0);
-        boolean marcou = true;
-        while (marcou) {
-            marcou = false;
-            for (int i = 0; i < l; i++)
-                for (int j = 0; j < c; j++)
-                    if (matriz[i][j].getValor() == 0 && !buscarZeroLinha(matriz, i, j, 1) && !buscarZeroColuna(matriz, i, j, 1)) {
-                        matriz[i][j].setCor(1);
-                        marcou = true;
-                    }
+        // construir assignment row->col a partir de matchCol
+        int[] assignment = new int[rows];
+        Arrays.fill(assignment, -1);
+        for (int j = 0; j < n; j++) {
+            if (matchCol[j] != -1 && matchCol[j] < rows && j < cols) {
+                assignment[matchCol[j]] = j;
+            }
+            // se match para padded column, assignment pode ficar -1 ou apontar para padded.
         }
+
+        // calcular custo apenas nas linhas originais
+        double totalCost = 0;
+        for (int i = 0; i < rows; i++) {
+            int j = assignment[i];
+            if (j >= 0 && j < cols) totalCost += input[i][j];
+            else totalCost += INF; // penalidade se foi atribuído a coluna fictícia
+        }
+
+        HungarianResult out = new HungarianResult();
+        out.assignment = assignment;
+        out.totalCost = totalCost;
+        return out;
     }
 
-    private static boolean buscarZeroLinha(No[][] matriz, int x, int y, int cor) {
-        for (int i = 0; i < matriz[x].length; i++) {
-            if (matriz[x][i].getValor() == 0 && matriz[x][i].getCor() != cor) return true;
+    // matching (Kuhn) considering edges where a[row][j] == 0 (within EPS).
+    private static boolean tryKuhn(int row, double[][] a, int[] matchCol, boolean[] seen) {
+        int n = a.length;
+        for (int j = 0; j < n; j++) {
+            if (!seen[j] && Math.abs(a[row][j]) <= EPS) {
+                seen[j] = true;
+                if (matchCol[j] == -1 || tryKuhn(matchCol[j], a, matchCol, seen)) {
+                    matchCol[j] = row;
+                    return true;
+                }
+            }
         }
         return false;
     }
 
-    private static boolean buscarZeroColuna(No[][] matriz, int x, int y, int cor) {
-        for (int i = 0; i < matriz.length; i++) {
-            if (matriz[i][y].getValor() == 0 && matriz[i][y].getCor() != cor) return true;
-        }
-        return false;
-    }
-
-    private static boolean buscarZero(No[][] matriz, int l, int c, int x, int y) {
-        for (int i = 0; i < l; i++)
-            if (matriz[i][y].getValor() == 0) return true;
-
-        for (int i = 0; i < c; i++)
-            if (matriz[x][i].getValor() == 0) return true;
-
-        return false;
-    }
-
-    public static void pintar(No[][] matriz, int l, int c, int cor) {
-        for (int i = 0; i < l; i++)
-            for (int j = 0; j < c; j++)
-                matriz[i][j].setCor(cor);
-    }
-
-    private static void carregarDados(No[][] matriz, int l, int c, String[][] matrizTxt) {
-        for (int x = 0; x < l; x++)
-            for (int y = 0; y < c; y++)
-                matriz[x][y] = new No(Double.parseDouble(matrizTxt[x][y]), 0);
-    }
-
-    private static void minLinha(No[][] matriz, int l, int c, No[] vetor) {
-        double menor;
-        for (int i = 0; i < l; i++) {
-            menor = Double.POSITIVE_INFINITY;
-            for (int j = 0; j < c; j++)
-                menor = Math.min(menor, matriz[i][j].getValor());
-            vetor[i] = new No(menor, 0);
-        }
-    }
-
-    private static void subMinLinha(No[][] matriz, int l, int c, No[] vetor) {
-        for (int i = 0; i < l; i++)
-            for (int j = 0; j < c; j++) {
-                double aux = matriz[i][j].getValor();
-                matriz[i][j].setValor(aux - vetor[i].getValor());
-            }
-    }
-
-    private static void minColuna(No[][] matriz, int l, int c, No[] vetor) {
-        double menor;
-        for (int i = 0; i < c; i++) {
-            menor = Double.POSITIVE_INFINITY;
-            for (int j = 0; j < l; j++)
-                menor = Math.min(menor, matriz[j][i].getValor());
-            vetor[i] = new No(menor, 0);
-        }
-    }
-
-    private static void subMinColuna(No[][] matriz, int l, int c, No[] vetor) {
-        for (int i = 0; i < c; i++)
-            for (int j = 0; j < l; j++) {
-                double aux = matriz[j][i].getValor();
-                matriz[j][i].setValor(aux - vetor[i].getValor());
-            }
-    }
-
-    private static void minTracosZeros(No[][] matriz, int l, int c) {
-        int vetC[] = new int[c], vetL[] = new int[l];
-        int pos, valor = 2;
-
-        // inicializa
-        for (int i = 0; i < l; i++) vetL[i] = 0;
-        for (int i = 0; i < c; i++) vetC[i] = 0;
-
-        contarZeros(matriz, l, c, vetL, vetC);
-
-        // valor vai de maior contagem até 1 (mantive a ideia do seu valor=2, mas melhor usar dinamicamente)
-        int maxCount = 0;
-        for (int v : vetL) if (v > maxCount) maxCount = v;
-        for (int v : vetC) if (v > maxCount) maxCount = v;
-
-        valor = maxCount;
-        while (!vazio(vetL) && !vazio(vetC) && valor > 0) {
-            pos = buscarPos(vetC, valor);
-            if (pos != -1) {
-                vetC[pos] = 0;
-                for (int i = 0; i < l; i++) {
-                    // verificar limites e apenas incrementar cor se existir
-                    matriz[i][pos].setCor(matriz[i][pos].getCor() + 1);
-                    if (matriz[i][pos].getValor() == 0) vetL[i] = Math.max(0, vetL[i] - 1);
-                }
-            }
-
-            pos = buscarPos(vetL, valor);
-            if (pos != -1) {
-                vetL[pos] = 0;
-                for (int i = 0; i < c; i++) {
-                    matriz[pos][i].setCor(matriz[pos][i].getCor() + 1);
-                    if (matriz[pos][i].getValor() == 0) vetC[i] = Math.max(0, vetC[i] - 1);
-                }
-            }
-
-            valor--;
-        }
-    }
-
-    private static int buscarPos(int vet[], int valor) {
-        for (int i = 0; i < vet.length; i++) {
-            if (vet[i] == valor) return i;
-        }
-        return -1;
-    }
-
-    private static boolean vazio(int vet[]) {
-        for (int i = 0; i < vet.length; i++) {
-            if (vet[i] != 0) return false;
-        }
-        return true;
-    }
-
-    private static void contarZeros(No[][] matriz, int l, int c, int vetL[], int vetC[]) {
-        for (int i = 0; i < l; i++) {
-            vetL[i] = 0;
-            for (int j = 0; j < c; j++) {
-                if (Math.abs(matriz[i][j].getValor()) < 1e-9) vetL[i]++;
-            }
-        }
-
-        for (int j = 0; j < c; j++) {
-            vetC[j] = 0;
-            for (int i = 0; i < l; i++) {
-                if (Math.abs(matriz[i][j].getValor()) < 1e-9) vetC[j]++;
-            }
-        }
-    }
-
-    private static int contarTracos(No[][] matriz, int l, int c) {
-        int cont, traco = 0;
-
-        for (int i = 0; i < l; i++) {
-            cont = 0;
-            for (int j = 0; j < c; j++) {
-                if (matriz[i][j].getCor() > 0) cont++;
-            }
-            if (cont == c) traco++;
-        }
-
-        for (int j = 0; j < c; j++) {
-            cont = 0;
-            for (int i = 0; i < l; i++) {
-                if (matriz[i][j].getCor() > 0) cont++;
-            }
-            if (cont == l) traco++;
-        }
-
-        return traco;
-    }
-
-    // retorna [menor, corMenor] (double, int em double)
-    private static int[] minCor(No[][] matriz, int l, int c) {
-        double menor = Double.POSITIVE_INFINITY;
-        int corMenor = -1;
-
-        for (int i = 0; i < l; i++) {
-            for (int j = 0; j < c; j++) {
-                if (matriz[i][j].getCor() > 1 && matriz[i][j].getValor() < menor) {
-                    menor = matriz[i][j].getValor();
-                    corMenor = matriz[i][j].getCor();
+    // DFS alternante para encontrar vértices visitáveis a partir de linha livre
+    private static void alternateDFS(int row, double[][] a, int[] matchCol, boolean[] rowVisited, boolean[] colVisited) {
+        rowVisited[row] = true;
+        int n = a.length;
+        for (int j = 0; j < n; j++) {
+            if (Math.abs(a[row][j]) <= EPS && !colVisited[j]) {
+                colVisited[j] = true;
+                if (matchCol[j] != -1 && !rowVisited[matchCol[j]]) {
+                    alternateDFS(matchCol[j], a, matchCol, rowVisited, colVisited);
                 }
             }
         }
-
-        if (corMenor == -1) {
-            // fallback: se não encontrou (nenhuma cor>1), pega menor global
-            menor = Double.POSITIVE_INFINITY;
-            for (int i = 0; i < l; i++)
-                for (int j = 0; j < c; j++)
-                    if (matriz[i][j].getValor() < menor) {
-                        menor = matriz[i][j].getValor();
-                        corMenor = matriz[i][j].getCor();
-                    }
-        }
-
-        int menorInt;
-        if (Double.isInfinite(menor)) menorInt = Integer.MAX_VALUE;
-        else menorInt = (int) Math.round(menor);
-
-        return new int[]{menorInt, corMenor};
     }
 
-    public static String[][] carregarDadosArq(String caminho) throws IOException {
-        List<String[]> linhas = new ArrayList<>();
+    /** Imprime matriz; destaca zeros (valor <= EPS) pintando BG_YELLOW; se highlightZeroColOrRow >=0, destaca toda coluna/linha */
+    private static void imprimirMatriz(double[][] a, int highlightZeroMode) {
+        int n = a.length;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                double v = a[i][j];
+                boolean isZero = Math.abs(v) <= EPS;
+                if (isZero) System.out.print(BG_YELLOW);
+                if (Double.isInfinite(v)) System.out.printf("%8s ", "INF");
+                else System.out.printf("%8.3f ", v);
+                if (isZero) System.out.print(BG_RESET);
+            }
+            System.out.println();
+        }
+    }
+
+    /** Lê uma matriz de um arquivo com números separados por espaço */
+    public static double[][] carregarDadosArq(String caminho) throws IOException {
+        List<double[]> rows = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(caminho))) {
-            String linha;
-            while ((linha = br.readLine()) != null) {
-                linha = linha.trim();
-                if (!linha.isEmpty()) {
-                    linhas.add(linha.split("\\s+"));
-                }
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                String[] parts = line.split("\\s+");
+                double[] vals = new double[parts.length];
+                for (int i = 0; i < parts.length; i++) vals[i] = Double.parseDouble(parts[i]);
+                rows.add(vals);
             }
         }
-        if (linhas.isEmpty()) throw new IllegalArgumentException("Arquivo vazio ou inválido: " + caminho);
-        linhasArq = linhas.size();
-        colunasArq = linhas.get(0).length;
-        return linhas.toArray(new String[0][]);
-    }
-
-    public static String matrizString(String[][] matriz) {
-        StringBuilder builder = new StringBuilder();
-        for (String[] linha : matriz) {
-            for (String valor : linha) {
-                builder.append(valor).append(" ");
-            }
-            builder.append("\n");
-        }
-        return builder.toString();
+        if (rows.isEmpty()) throw new IllegalArgumentException("Arquivo vazio ou inválido: " + caminho);
+        int cols = rows.get(0).length;
+        for (double[] r : rows) if (r.length != cols) throw new IllegalArgumentException("Todas as linhas devem ter o mesmo número de colunas");
+        double[][] m = new double[rows.size()][cols];
+        for (int i = 0; i < rows.size(); i++) m[i] = rows.get(i);
+        return m;
     }
 }

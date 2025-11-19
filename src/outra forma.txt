@@ -1,0 +1,97 @@
+//A RESPOSTA DESSE É 16, A DO MAIN DA 20!!! NAO SEI QUAL E O CERTO
+
+import java.io.*;
+import java.util.*;
+
+public class Main {
+
+    public static double[][] carregarDadosArq(String nomeArq) {
+        List<double[]> linhas = new ArrayList<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(nomeArq))) {
+            String linha;
+            while ((linha = br.readLine()) != null) {
+                String[] partes = linha.trim().split("\\s+");
+                double[] valores = new double[partes.length];
+                for (int i = 0; i < partes.length; i++) {
+                    valores[i] = Double.parseDouble(partes[i]);
+                }
+                linhas.add(valores);
+            }
+        } catch (Exception e) {
+            System.out.println("Erro ao ler arquivo: " + e.getMessage());
+        }
+
+        return linhas.toArray(new double[0][]);
+    }
+
+    public static void imprimirMatriz(double[][] matriz, int highlightCol) {
+        for (int i = 0; i < matriz.length; i++) {
+            for (int j = 0; j < matriz[i].length; j++) {
+
+                String val = String.valueOf((int) matriz[i][j]); // sem vírgula zero
+
+                if (j == highlightCol) {
+                    System.out.print("[" + val + "]\t");
+                } else {
+                    System.out.print(val + "\t");
+                }
+            }
+            System.out.println();
+        }
+    }
+
+    public static void main(String[] args) {
+
+        double[][] input;
+
+        File f = new File("entrada.txt");
+        if (f.exists()) {
+            System.out.println("Procurando arquivo no diretório: " +
+                    new File("").getAbsolutePath());
+
+            // CORREÇÃO IMPORTANTÍSSIMA
+            input = carregarDadosArq("entrada.txt");
+
+        } else {
+            System.out.println("Arquivo entrada.txt não encontrado — usando matriz embutida.");
+            input = new double[][]{
+                    {5, 24, 13, 7},
+                    {10, 25, 3, 23},
+                    {28, 9, 8, 5},
+                    {10, 17, 15, 3}
+            };
+        }
+
+        System.out.println("\nMatriz de entrada:");
+        imprimirMatriz(input, -1);
+
+        // Algoritmo Hungarian Simple (opção B, mínimo por linha)
+        int n = input.length;
+        int[] atribuicoes = new int[n];
+        double custoTotal = 0;
+
+        for (int i = 0; i < n; i++) {
+            double menor = input[i][0];
+            int colMenor = 0;
+
+            for (int j = 1; j < input[i].length; j++) {
+                if (input[i][j] < menor) {
+                    menor = input[i][j];
+                    colMenor = j;
+                }
+            }
+
+            atribuicoes[i] = colMenor;
+            custoTotal += menor;
+        }
+
+        System.out.println("\nAtribuições encontradas (linha → coluna):");
+        for (int i = 0; i < atribuicoes.length; i++) {
+            System.out.println("Linha " + i + " → Coluna " + atribuicoes[i]);
+        }
+
+        System.out.println("\nCusto total: " + (int) custoTotal); // sem .0
+
+    }
+}
